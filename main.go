@@ -24,10 +24,30 @@ import (
 	"golang.org/x/image/math/fixed"
 )
 
+type Image struct {
+}
+
+type Opinion int
+
+const (
+	Indifferent Opinion = iota
+	For
+	Against
+)
+
+type Cost struct {
+	Value     int
+	Recurring bool
+}
+
+// Values 0-10
 type Card struct {
-	title   string
-	za      []bool
-	przeciw []bool
+	Art     Image
+	Title   string
+	For     []Opinion
+	Against []Opinion
+	Effects []int
+	Cost    Cost
 }
 
 var (
