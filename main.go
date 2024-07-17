@@ -45,32 +45,32 @@ type Card struct {
 
 var (
 	grupyImagePaths = []string{
-		"assets/grupy/Socjalni.png",
-		"assets/grupy/Ekolodzy.png",
-		"assets/grupy/Centrysci.png",
-		"assets/grupy/Globalisci.png",
 		"assets/grupy/Katolicy.png",
-		"assets/grupy/Narodowcy.png",
 		"assets/grupy/Progresywni.png",
+		"assets/grupy/Socjalni.png",
 		"assets/grupy/Przedsiebiorcy.png",
 		"assets/grupy/Robotnicy.png",
+		"assets/grupy/Narodowcy.png",
+		"assets/grupy/Globalisci.png",
+		"assets/grupy/Ekolodzy.png",
 		"assets/grupy/Samorzadowcy.png",
+		"assets/grupy/Centrysci.png",
 	}
 	wskaznikiImagePaths = []string{
-		"assets/wsk/InflacjaMinus.png",
-		"assets/wsk/InflacjaPlus.png",
 		"assets/wsk/DochodMinus.png",
 		"assets/wsk/DochodPlus.png",
 		"assets/wsk/ZatrudnienieMinus.png",
 		"assets/wsk/ZatrudnieniePlus.png",
-		"assets/wsk/BezpieczenstwoMinus.png",
-		"assets/wsk/BezpieczenstwoPlus.png",
-		"assets/wsk/WolnoscMinus.png",
-		"assets/wsk/WolnoscPlus.png",
 		"assets/wsk/InfrastrukturaMinus.png",
 		"assets/wsk/InfrastrukturaPlus.png",
+		"assets/wsk/WolnoscMinus.png",
+		"assets/wsk/WolnoscPlus.png",
+		"assets/wsk/BezpieczenstwoMinus.png",
+		"assets/wsk/BezpieczenstwoPlus.png",
 		"assets/wsk/ZdrowieMinus.png",
 		"assets/wsk/ZdrowiePlus.png",
+		"assets/wsk/InflacjaMinus.png",
+		"assets/wsk/InflacjaPlus.png",
 	}
 )
 
@@ -79,15 +79,15 @@ func main() {
 	card := Card{
 		ArtPath:  "assets/piractwo.png",
 		Title:    "Depenalizacja piractwa cyfrowego",
-		Opinions: [10]Opinion{Indifferent, Against, Indifferent, Indifferent, Indifferent, Indifferent, For, Against, Indifferent, Indifferent},
-		Effects:  [7]int{0, 0, 0, 0, 1, 0, 0},
+		Opinions: [10]Opinion{Indifferent, For, Indifferent, Against, Indifferent, Indifferent, Indifferent, Against, Indifferent, Indifferent},
+		Effects:  [7]int{0, 0, 0, 1, 0, 0, 0},
 		Cost: Cost{
 			Value:       0,
 			addToBudget: false,
 		},
 	}
 
-	err := drawCard(card, "testcard")
+	err := drawCard(card, "piractwo")
 	if err != nil {
 		log.Fatal(err)
 	}
