@@ -320,7 +320,7 @@ func addTitle(backgroundImage image.Image, title string) *image.RGBA {
 	}
 	context := freetype.NewContext()
 	context.SetFont(font)
-	fontSize := 150
+	fontSize := 135
 	context.SetFontSize(float64(fontSize))
 	context.SetClip(resultImage.Bounds())
 	context.SetDst(resultImage)
@@ -376,42 +376,4 @@ func textWidth(face font.Face, text string) int {
 		width += int(aw >> 6)
 	}
 	return width
-}
-
-func randomCard() Card {
-	rand.Seed(time.Now().UnixNano())
-
-	// Generate random opinions
-	var opinions [10]Opinion
-	for i := range opinions {
-		opinions[i] = Opinion(rand.Intn(3)) // Random value between 0 (Indifferent), 1 (For), and 2 (Against)
-	}
-
-	// Generate random effects
-	var effects [7]int
-	nonZeroCount := rand.Intn(2) + 2 // 2 or 3 non-zero effects
-	for i := 0; i < nonZeroCount; i++ {
-		index := rand.Intn(7)
-		for effects[index] != 0 { // Ensure unique non-zero indices
-			index = rand.Intn(7)
-		}
-		effects[index] = rand.Intn(10) + 1 - 5 // Random non-zero value between 1 and 10
-	}
-
-	// Generate random cost
-	cost := Cost{
-		Value:       rand.Intn(6) - 3,  // Random cost value between -3 and 3
-		addToBudget: rand.Intn(2) == 1, // Random boolean for recurring cost
-	}
-
-	// Generate random title
-	titles := []string{"Zakaz handlu w niedziele", "Prywatyzacja uniwersytetów", "Małżeństwa jednopłciowe z adopcją"} // Example titles
-	title := titles[rand.Intn(len(titles))]
-
-	return Card{
-		Title:    title,
-		Opinions: opinions,
-		Effects:  effects,
-		Cost:     cost,
-	}
 }
