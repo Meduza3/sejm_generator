@@ -3,14 +3,19 @@ package main
 import (
 	"fmt"
 	"image"
+	"image/color"
 	"image/draw"
 	"image/png"
 	"log"
 	"math/rand"
 	"os"
+	"strings"
 	"time"
 
+	"github.com/golang/freetype"
+	"github.com/golang/freetype/truetype"
 	"github.com/nfnt/resize"
+	"golang.org/x/image/font"
 )
 
 type Image struct {
@@ -31,7 +36,7 @@ type Cost struct {
 
 // Values 0-10
 type Card struct {
-	Art      Image
+	ArtPath  string
 	Title    string
 	Opinions [10]Opinion
 	Effects  [7]int
@@ -40,16 +45,6 @@ type Card struct {
 
 var (
 	grupyImagePaths = []string{
-		"assets/grupy/Socjalni.png",
-		"assets/grupy/Ekolodzy.png",
-		"assets/grupy/Centrysci.png",
-		"assets/grupy/Globalisci.png",
-		"assets/grupy/Katolicy.png",
-		"assets/grupy/Narodowcy.png",
-		"assets/grupy/Progresywni.png",
-		"assets/grupy/Przedsiebiorcy.png",
-		"assets/grupy/Robotnicy.png",
-		"assets/grupy/Samorzadowcy.png",
 		"assets/grupy/Socjalni.png",
 		"assets/grupy/Ekolodzy.png",
 		"assets/grupy/Centrysci.png",
@@ -77,25 +72,16 @@ var (
 		"assets/wsk/ZdrowieMinus.png",
 		"assets/wsk/ZdrowiePlus.png",
 	}
-	recurringCostPaths = []string{
-		"assets/ceny/minus3.png",
-		"assets/ceny/minus2.png",
-		"assets/ceny/minus1.png",
-		"assets/ceny/plus1.png",
-		"assets/ceny/plus2.png",
-		"assets/ceny/plus3.png",
-	}
 )
 
 func main() {
 	//Initialize a card
 	card := Card{
+		ArtPath:  "assets/piractwo.png",
 		Title:    "Depenalizacja piractwa cyfrowego",
 		Opinions: [10]Opinion{For, Against, For, Against, For, For, Against, For, Against, For},
 		Effects:  [7]int{0, 1, 0, -1, 1, 0, -1},
 	}
-
-	card = randomCard()
 
 	err := drawCard(card, "testcard")
 	if err != nil {
@@ -115,18 +101,7 @@ func drawCard(card Card, filename string) error {
 		return err
 	}
 
-	//Add card art to backgroundImage
-	artFile, err := os.Open("assets/piractwo.png")
-	if err != nil {
-		return err
-	}
-	art, err := png.Decode(artFile)
-	defer artFile.Close()
-	if err != nil {
-		return err
-	}
-
-	backgroundImage = addArt(backgroundImage, art)
+	backgroundImage = addArt(backgroundImage, card.ArtPath)
 
 	backgroundImage = addStamps(backgroundImage, card.Opinions[:])
 
@@ -134,6 +109,8 @@ func drawCard(card Card, filename string) error {
 	if card.Cost.Value > 0 {
 		backgroundImage = addCost(backgroundImage, card.Cost)
 	}
+
+	backgroundImage = addTitle(backgroundImage, card.Title)
 
 	result, err := os.Create(filename + ".png")
 	if err != nil {
@@ -147,7 +124,18 @@ func drawCard(card Card, filename string) error {
 	return nil
 }
 
-func addArt(backgroundImage image.Image, art image.Image) *image.RGBA {
+func addArt(backgroundImage image.Image, artPath string) *image.RGBA {
+
+	//Add card art to backgroundImage
+	artFile, err := os.Open(artPath)
+	if err != nil {
+		fmt.Println("addArt oops")
+	}
+	art, err := png.Decode(artFile)
+	defer artFile.Close()
+	if err != nil {
+		fmt.Println("addArt oops2")
+	}
 	//First resize the art to fit the card.
 	artWidth := uint(300 * 5)
 	artHeight := uint(300 * 3)
@@ -183,7 +171,7 @@ func drawStampFor(backgroundImage image.Image, stamp_id int) *image.RGBA {
 	}
 	stampImage, err := png.Decode(stampFile)
 	if err != nil {
-		fmt.Println("drawStampFor oops")
+		fmt.Println("drawStampFor oops2")
 	}
 
 	stampImage = resize.Resize(300, 300, stampImage, resize.Lanczos3)
@@ -204,7 +192,7 @@ func drawStampAgainst(backgroundImage image.Image, stamp_id int) *image.RGBA {
 	}
 	stampImage, err := png.Decode(stampFile)
 	if err != nil {
-		fmt.Println("drawStampAgainst oops")
+		fmt.Println("drawStampAgainst oops2")
 	}
 
 	stampImage = resize.Resize(300, 300, stampImage, resize.Lanczos3)
@@ -243,10 +231,10 @@ func drawGoodEffect(backgroundImage image.Image, effect_id, offset int) *image.R
 	}
 	effectImage, err := png.Decode(effectFile)
 	if err != nil {
-		fmt.Println("drawGoodEffect oops")
+		fmt.Println("drawGoodEffect oops2")
 	}
 	effectImage = resize.Resize(360, 300, effectImage, resize.Lanczos3)
-	x := 10 + offset*150
+	x := 765 + offset*150
 	y := 2010
 	effectPosition := image.Point{X: x, Y: y}
 	draw.Draw(resultImage, effectImage.Bounds().Add(effectPosition), effectImage, image.Point{}, draw.Over)
@@ -262,10 +250,10 @@ func drawBadEffect(backgroundImage image.Image, effect_id, offset int) *image.RG
 	}
 	effectImage, err := png.Decode(effectFile)
 	if err != nil {
-		fmt.Println("drawBadEffect oops")
+		fmt.Println("drawBadEffect oops2")
 	}
 	effectImage = resize.Resize(360, 300, effectImage, resize.Lanczos3)
-	x := 765 + offset*150
+	x := 10 + offset*150
 	y := 2010
 	effectPosition := image.Point{X: x, Y: y}
 	draw.Draw(resultImage, effectImage.Bounds().Add(effectPosition), effectImage, image.Point{}, draw.Over)
@@ -315,6 +303,77 @@ func costToFilepath(cost Cost) string {
 	return filepath
 }
 
+func addTitle(backgroundImage image.Image, title string) *image.RGBA {
+	resultImage := image.NewRGBA(backgroundImage.Bounds())
+	draw.Draw(resultImage, backgroundImage.Bounds(), backgroundImage, image.Point{}, draw.Src)
+	fontBytes, err := os.ReadFile("assets/sylfaen.ttf")
+	if err != nil {
+		fmt.Println("addTitle oops")
+	}
+	font, err := freetype.ParseFont(fontBytes)
+	if err != nil {
+		fmt.Println("addTitle oops2")
+	}
+	context := freetype.NewContext()
+	context.SetFont(font)
+	fontSize := 150
+	context.SetFontSize(float64(fontSize))
+	context.SetClip(resultImage.Bounds())
+	context.SetDst(resultImage)
+	context.SetSrc(image.NewUniform(color.White))
+
+	face := truetype.NewFace(font, &truetype.Options{
+		Size: 150,
+	})
+
+	if len(title) > 11 {
+		mid := len(title) / 2
+		left := strings.LastIndex(title[:mid], " ")
+		right := strings.Index(title[mid:], " ") + mid
+
+		if left == -1 {
+			left = 0
+		}
+		if right == -1 || right >= len(title) {
+			right = len(title)
+		}
+		if mid-left < right-mid {
+			mid = left
+		} else {
+			mid = right
+		}
+		title = title[:mid] + "\n" + title[mid+1:]
+	}
+
+	lines := strings.Split(title, "\n")
+
+	y := 1020
+	for _, line := range lines {
+		lineWidth := textWidth(face, line)
+		x := (resultImage.Bounds().Dx() - lineWidth) / 2 // Center text horizontally
+		pt := freetype.Pt(x, y)
+		_, err = context.DrawString(line, pt)
+		if err != nil {
+			fmt.Println("addTitle oop3")
+		}
+		y += int(context.PointToFixed(float64(fontSize)) >> 6)
+	}
+
+	return resultImage
+}
+
+func textWidth(face font.Face, text string) int {
+	width := 0
+	for _, char := range text {
+		aw, ok := face.GlyphAdvance(rune(char))
+		if !ok {
+			continue
+		}
+		width += int(aw >> 6)
+	}
+	return width
+}
+
 func randomCard() Card {
 	rand.Seed(time.Now().UnixNano())
 
@@ -342,7 +401,7 @@ func randomCard() Card {
 	}
 
 	// Generate random title
-	titles := []string{"Title1", "Title2", "Title3"} // Example titles
+	titles := []string{"Zakaz handlu w niedziele", "Prywatyzacja uniwersytetów", "Małżeństwa jednopłciowe z adopcją"} // Example titles
 	title := titles[rand.Intn(len(titles))]
 
 	return Card{
