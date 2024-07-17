@@ -238,7 +238,7 @@ func drawGoodEffect(backgroundImage image.Image, effect_id, offset int) *image.R
 		fmt.Println("drawGoodEffect oops2")
 	}
 	effectImage = resize.Resize(360, 300, effectImage, resize.Lanczos3)
-	x := 765 + offset*150
+	x := 775 + offset*150
 	y := 2010
 	effectPosition := image.Point{X: x, Y: y}
 	draw.Draw(resultImage, effectImage.Bounds().Add(effectPosition), effectImage, image.Point{}, draw.Over)
