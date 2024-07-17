@@ -30,8 +30,8 @@ const (
 )
 
 type Cost struct {
-	Value     int
-	Recurring bool
+	Value       int
+	addToBudget bool
 }
 
 // Values 0-10
@@ -79,8 +79,12 @@ func main() {
 	card := Card{
 		ArtPath:  "assets/piractwo.png",
 		Title:    "Depenalizacja piractwa cyfrowego",
-		Opinions: [10]Opinion{For, Against, For, Against, For, For, Against, For, Against, For},
-		Effects:  [7]int{0, 1, 0, -1, 1, 0, -1},
+		Opinions: [10]Opinion{Indifferent, Against, Indifferent, Indifferent, Indifferent, Indifferent, For, Against, Indifferent, Indifferent},
+		Effects:  [7]int{0, 0, 0, 0, 1, 0, 0},
+		Cost: Cost{
+			Value:       0,
+			addToBudget: false,
+		},
 	}
 
 	err := drawCard(card, "testcard")
@@ -296,7 +300,7 @@ func costToFilepath(cost Cost) string {
 	default:
 		filepath += "minus1"
 	}
-	if cost.Recurring {
+	if cost.addToBudget {
 		filepath += "raz"
 	}
 	filepath += ".png"
@@ -396,8 +400,8 @@ func randomCard() Card {
 
 	// Generate random cost
 	cost := Cost{
-		Value:     rand.Intn(6) - 3,  // Random cost value between -3 and 3
-		Recurring: rand.Intn(2) == 1, // Random boolean for recurring cost
+		Value:       rand.Intn(6) - 3,  // Random cost value between -3 and 3
+		addToBudget: rand.Intn(2) == 1, // Random boolean for recurring cost
 	}
 
 	// Generate random title
