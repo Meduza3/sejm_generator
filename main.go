@@ -152,30 +152,30 @@ func addArt(backgroundImage image.Image, artPath string) *image.RGBA {
 }
 
 func addStamps(backgroundImage image.Image, opinions []Opinion) *image.RGBA {
-	resultImage := image.NewRGBA(backgroundImage.Bounds())
-	draw.Draw(resultImage, backgroundImage.Bounds(), backgroundImage, image.Point{}, draw.Src)
+	for {
+		resultImage := image.NewRGBA(backgroundImage.Bounds())
+		draw.Draw(resultImage, backgroundImage.Bounds(), backgroundImage, image.Point{}, draw.Src)
 
-	placedPositions := []image.Point{}
+		placedPositions := []image.Point{}
+		success := true
 
-	for idx, op := range opinions {
-		var err error
-		if op == For {
-			for {
+		for idx, op := range opinions {
+			var err error
+			if op == For {
 				resultImage, placedPositions, err = drawStampFor(resultImage, idx, placedPositions)
-				if err == nil {
-					break
-				}
-			}
-		} else if op == Against {
-			for {
+			} else if op == Against {
 				resultImage, placedPositions, err = drawStampAgainst(resultImage, idx, placedPositions)
-				if err == nil {
-					break
-				}
+			}
+			if err != nil {
+				success = false
+				break
 			}
 		}
+
+		if success {
+			return resultImage
+		}
 	}
-	return resultImage
 }
 
 func drawStampFor(backgroundImage image.Image, stamp_id int, placedPositions []image.Point) (*image.RGBA, []image.Point, error) {
@@ -204,7 +204,7 @@ func drawStampFor(backgroundImage image.Image, stamp_id int, placedPositions []i
 			break
 		}
 		if i > 10 {
-			fmt.Println("resetting for")
+			// fmt.Println("resetting for")
 			return resultImage, placedPositions, fmt.Errorf("impossible placement")
 		}
 	}
@@ -239,7 +239,7 @@ func drawStampAgainst(backgroundImage image.Image, stamp_id int, placedPositions
 			break
 		}
 		if i > 10 {
-			fmt.Println("resetting against")
+			// fmt.Println("resetting against")
 			return resultImage, placedPositions, fmt.Errorf("impossible placement")
 		}
 	}
