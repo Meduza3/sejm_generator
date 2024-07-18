@@ -7,10 +7,10 @@ import (
 	"image/draw"
 	"image/png"
 	"log"
+	"math"
 	"math/rand"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/golang/freetype"
 	"github.com/golang/freetype/truetype"
@@ -24,14 +24,14 @@ type Image struct {
 type Opinion int
 
 const (
-	Indifferent Opinion = iota
+	Against Opinion = iota - 1
+	Indifferent
 	For
-	Against
 )
 
 type Cost struct {
 	Value       int
-	addToBudget bool
+	AddToBudget bool
 }
 
 // Values 0-10
@@ -77,17 +77,17 @@ var (
 func main() {
 	//Initialize a card
 	card := Card{
-		ArtPath:  "assets/piractwo.png",
-		Title:    "Depenalizacja piractwa cyfrowego",
-		Opinions: [10]Opinion{Indifferent, For, Indifferent, Against, Indifferent, Indifferent, Indifferent, Against, Indifferent, Indifferent},
-		Effects:  [7]int{0, 0, 0, 1, 0, 0, 0},
+		ArtPath:  "assets/misiu.png",
+		Title:    "Równy wyższy wiek emerytalny",
+		Opinions: [10]Opinion{0, 1, -1, 1, -1, 0, 0, 0, 0, 0},
+		Effects:  [7]int{-1, 1, 1, 1, 0, -1, 0},
 		Cost: Cost{
-			Value:       0,
-			addToBudget: false,
+			Value:       1,
+			AddToBudget: true,
 		},
 	}
 
-	err := drawCard(card, "piractwo")
+	err := drawCard(card, "rawr")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -154,18 +154,31 @@ func addArt(backgroundImage image.Image, artPath string) *image.RGBA {
 func addStamps(backgroundImage image.Image, opinions []Opinion) *image.RGBA {
 	resultImage := image.NewRGBA(backgroundImage.Bounds())
 	draw.Draw(resultImage, backgroundImage.Bounds(), backgroundImage, image.Point{}, draw.Src)
+
+	placedPositions := []image.Point{}
+
 	for idx, op := range opinions {
-		time.Sleep(1 * time.Millisecond)
+		var err error
 		if op == For {
-			resultImage = drawStampFor(resultImage, idx)
+			for {
+				resultImage, placedPositions, err = drawStampFor(resultImage, idx, placedPositions)
+				if err == nil {
+					break
+				}
+			}
 		} else if op == Against {
-			resultImage = drawStampAgainst(resultImage, idx)
+			for {
+				resultImage, placedPositions, err = drawStampAgainst(resultImage, idx, placedPositions)
+				if err == nil {
+					break
+				}
+			}
 		}
 	}
 	return resultImage
 }
 
-func drawStampFor(backgroundImage image.Image, stamp_id int) *image.RGBA {
+func drawStampFor(backgroundImage image.Image, stamp_id int, placedPositions []image.Point) (*image.RGBA, []image.Point, error) {
 	resultImage := image.NewRGBA(backgroundImage.Bounds())
 	draw.Draw(resultImage, backgroundImage.Bounds(), backgroundImage, image.Point{}, draw.Src)
 
@@ -179,14 +192,28 @@ func drawStampFor(backgroundImage image.Image, stamp_id int) *image.RGBA {
 	}
 
 	stampImage = resize.Resize(300, 300, stampImage, resize.Lanczos3)
-	x := rand.Intn(345 + 1)
-	y := rand.Intn(1725-1200+1) + 1200
-	stampPosition := image.Point{X: x, Y: y}
+
+	var stampPosition image.Point
+	i := 0
+	for {
+		x := rand.Intn(1200-765+1) + 765
+		y := rand.Intn(1725-1200+1) + 1200
+		stampPosition = image.Point{X: x, Y: y}
+		i++
+		if !isOverlap(stampPosition, placedPositions) {
+			break
+		}
+		if i > 10 {
+			fmt.Println("resetting for")
+			return resultImage, placedPositions, fmt.Errorf("impossible placement")
+		}
+	}
 	draw.Draw(resultImage, stampImage.Bounds().Add(stampPosition), stampImage, image.Point{}, draw.Over)
-	return resultImage
+	placedPositions = append(placedPositions, stampPosition)
+	return resultImage, placedPositions, nil
 }
 
-func drawStampAgainst(backgroundImage image.Image, stamp_id int) *image.RGBA {
+func drawStampAgainst(backgroundImage image.Image, stamp_id int, placedPositions []image.Point) (*image.RGBA, []image.Point, error) {
 	resultImage := image.NewRGBA(backgroundImage.Bounds())
 	draw.Draw(resultImage, backgroundImage.Bounds(), backgroundImage, image.Point{}, draw.Src)
 
@@ -200,11 +227,35 @@ func drawStampAgainst(backgroundImage image.Image, stamp_id int) *image.RGBA {
 	}
 
 	stampImage = resize.Resize(300, 300, stampImage, resize.Lanczos3)
-	x := rand.Intn(1200-765+1) + 765
-	y := rand.Intn(1725-1200+1) + 1200
-	stampPosition := image.Point{X: x, Y: y}
+
+	var stampPosition image.Point
+	i := 0
+	for {
+		x := rand.Intn(345 + 1)
+		y := rand.Intn(1725-1200+1) + 1200
+		stampPosition = image.Point{X: x, Y: y}
+		i++
+		if !isOverlap(stampPosition, placedPositions) {
+			break
+		}
+		if i > 10 {
+			fmt.Println("resetting against")
+			return resultImage, placedPositions, fmt.Errorf("impossible placement")
+		}
+	}
 	draw.Draw(resultImage, stampImage.Bounds().Add(stampPosition), stampImage, image.Point{}, draw.Over)
-	return resultImage
+	placedPositions = append(placedPositions, stampPosition)
+	return resultImage, placedPositions, nil
+}
+
+func isOverlap(position image.Point, placedPositions []image.Point) bool {
+	for _, p := range placedPositions {
+		dist := math.Sqrt(math.Pow(float64(position.X)-float64(p.X), 2) + math.Pow(float64(position.Y)-float64(p.Y), 2))
+		if dist <= 420 {
+			return true
+		}
+	}
+	return false
 }
 
 func addEffects(backgroundImage image.Image, effects []int) *image.RGBA {
@@ -215,10 +266,10 @@ func addEffects(backgroundImage image.Image, effects []int) *image.RGBA {
 	for idx, val := range effects {
 		if val != 0 {
 			if val > 0 {
-				resultImage = drawGoodEffect(resultImage, idx*2+1, goodOffset)
+				resultImage = drawGoodEffect(resultImage, val, idx*2+1, goodOffset)
 				goodOffset++
 			} else { // val < 0
-				resultImage = drawBadEffect(resultImage, idx*2, badOffset)
+				resultImage = drawBadEffect(resultImage, val, idx*2, badOffset)
 				badOffset++
 			}
 		}
@@ -226,7 +277,7 @@ func addEffects(backgroundImage image.Image, effects []int) *image.RGBA {
 	return resultImage
 }
 
-func drawGoodEffect(backgroundImage image.Image, effect_id, offset int) *image.RGBA {
+func drawGoodEffect(backgroundImage image.Image, val int, effect_id, offset int) *image.RGBA {
 	resultImage := image.NewRGBA(backgroundImage.Bounds())
 	draw.Draw(resultImage, backgroundImage.Bounds(), backgroundImage, image.Point{}, draw.Src)
 	effectFile, err := os.Open(wskaznikiImagePaths[effect_id])
@@ -239,13 +290,36 @@ func drawGoodEffect(backgroundImage image.Image, effect_id, offset int) *image.R
 	}
 	effectImage = resize.Resize(360, 300, effectImage, resize.Lanczos3)
 	x := 775 + offset*150
-	y := 2010
-	effectPosition := image.Point{X: x, Y: y}
-	draw.Draw(resultImage, effectImage.Bounds().Add(effectPosition), effectImage, image.Point{}, draw.Over)
+	var y int
+	var effectPosition image.Point
+	switch val {
+	case 1:
+		y = 2010
+		effectPosition = image.Point{X: x, Y: y}
+		draw.Draw(resultImage, effectImage.Bounds().Add(effectPosition), effectImage, image.Point{}, draw.Over)
+	case 2:
+		y = 2010
+		effectPosition = image.Point{X: x, Y: y}
+		draw.Draw(resultImage, effectImage.Bounds().Add(effectPosition), effectImage, image.Point{}, draw.Over)
+		y = 1960
+		effectPosition = image.Point{X: x, Y: y}
+		draw.Draw(resultImage, effectImage.Bounds().Add(effectPosition), effectImage, image.Point{}, draw.Over)
+	case 3:
+		y = 2010
+		effectPosition = image.Point{X: x, Y: y}
+		draw.Draw(resultImage, effectImage.Bounds().Add(effectPosition), effectImage, image.Point{}, draw.Over)
+		y = 1960
+		effectPosition = image.Point{X: x, Y: y}
+		draw.Draw(resultImage, effectImage.Bounds().Add(effectPosition), effectImage, image.Point{}, draw.Over)
+		y = 1910
+		effectPosition = image.Point{X: x, Y: y}
+		draw.Draw(resultImage, effectImage.Bounds().Add(effectPosition), effectImage, image.Point{}, draw.Over)
+	}
+
 	return resultImage
 }
 
-func drawBadEffect(backgroundImage image.Image, effect_id, offset int) *image.RGBA {
+func drawBadEffect(backgroundImage image.Image, val int, effect_id, offset int) *image.RGBA {
 	resultImage := image.NewRGBA(backgroundImage.Bounds())
 	draw.Draw(resultImage, backgroundImage.Bounds(), backgroundImage, image.Point{}, draw.Src)
 	effectFile, err := os.Open(wskaznikiImagePaths[effect_id])
@@ -258,9 +332,32 @@ func drawBadEffect(backgroundImage image.Image, effect_id, offset int) *image.RG
 	}
 	effectImage = resize.Resize(360, 300, effectImage, resize.Lanczos3)
 	x := 10 + offset*150
-	y := 2010
-	effectPosition := image.Point{X: x, Y: y}
-	draw.Draw(resultImage, effectImage.Bounds().Add(effectPosition), effectImage, image.Point{}, draw.Over)
+	var y int
+	var effectPosition image.Point
+	switch val {
+	case -1:
+		y = 2010
+		effectPosition = image.Point{X: x, Y: y}
+		draw.Draw(resultImage, effectImage.Bounds().Add(effectPosition), effectImage, image.Point{}, draw.Over)
+	case -2:
+		y = 2060
+		effectPosition = image.Point{X: x, Y: y}
+		draw.Draw(resultImage, effectImage.Bounds().Add(effectPosition), effectImage, image.Point{}, draw.Over)
+		y = 2010
+		effectPosition = image.Point{X: x, Y: y}
+		draw.Draw(resultImage, effectImage.Bounds().Add(effectPosition), effectImage, image.Point{}, draw.Over)
+	case -3:
+		y = 2010
+		effectPosition = image.Point{X: x, Y: y}
+		draw.Draw(resultImage, effectImage.Bounds().Add(effectPosition), effectImage, image.Point{}, draw.Over)
+		y = 2060
+		effectPosition = image.Point{X: x, Y: y}
+		draw.Draw(resultImage, effectImage.Bounds().Add(effectPosition), effectImage, image.Point{}, draw.Over)
+		y = 2110
+		effectPosition = image.Point{X: x, Y: y}
+		draw.Draw(resultImage, effectImage.Bounds().Add(effectPosition), effectImage, image.Point{}, draw.Over)
+	}
+
 	return resultImage
 }
 
@@ -300,7 +397,7 @@ func costToFilepath(cost Cost) string {
 	default:
 		filepath += "minus1"
 	}
-	if cost.addToBudget {
+	if !cost.AddToBudget {
 		filepath += "raz"
 	}
 	filepath += ".png"
@@ -330,6 +427,7 @@ func addTitle(backgroundImage image.Image, title string) *image.RGBA {
 		Size: 150,
 	})
 
+	y := 1020
 	if len(title) > 11 {
 		mid := len(title) / 2
 		left := strings.LastIndex(title[:mid], " ")
@@ -347,11 +445,12 @@ func addTitle(backgroundImage image.Image, title string) *image.RGBA {
 			mid = right
 		}
 		title = title[:mid] + "\n" + title[mid+1:]
+	} else {
+		y += 100
 	}
 
 	lines := strings.Split(title, "\n")
 
-	y := 1020
 	for _, line := range lines {
 		lineWidth := textWidth(face, line)
 		x := (resultImage.Bounds().Dx() - lineWidth) / 2 // Center text horizontally
