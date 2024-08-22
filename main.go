@@ -1,15 +1,17 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"image"
 	"image/color"
 	"image/draw"
+	"image/jpeg"
 	"image/png"
 	"log"
 	"math"
-	"math/rand"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/golang/freetype"
@@ -18,24 +20,31 @@ import (
 	"golang.org/x/image/font"
 )
 
-type Image struct {
-}
-
 type Opinion int
 
 const (
-	Against Opinion = iota - 1
+	ExtraAgainst Opinion = iota - 2
+	Against
 	Indifferent
 	For
+	ExtraFor
 )
 
 type Cost struct {
 	Value       int
+	Currency    Currency
 	AddToBudget bool
 }
 
+type Currency string
+
+const (
+	Trust Currency = "Trust"
+	Cash  Currency = "Cash"
+)
+
 // Values 0-10
-type Card struct {
+type LegislationCard struct {
 	ArtPath  string
 	Title    string
 	Opinions [10]Opinion
@@ -45,25 +54,25 @@ type Card struct {
 
 var (
 	grupyImagePaths = []string{
-		"assets/grupy/Katolicy.png",
-		"assets/grupy/Progresywni.png",
-		"assets/grupy/Socjalni.png",
-		"assets/grupy/Przedsiebiorcy.png",
-		"assets/grupy/Robotnicy.png",
-		"assets/grupy/Narodowcy.png",
-		"assets/grupy/Globalisci.png",
-		"assets/grupy/Ekolodzy.png",
-		"assets/grupy/Samorzadowcy.png",
-		"assets/grupy/Centrysci.png",
+		"assets/grupy/kat.png",
+		"assets/grupy/prg.png",
+		"assets/grupy/soc.png",
+		"assets/grupy/pzc.png",
+		"assets/grupy/rob.png",
+		"assets/grupy/nar.png",
+		"assets/grupy/glo.png",
+		"assets/grupy/eko.png",
+		"assets/grupy/sam.png",
+		"assets/grupy/cen.png",
 	}
 	wskaznikiImagePaths = []string{
-		"assets/wsk/DochodMinus.png",
-		"assets/wsk/DochodPlus.png",
-		"assets/wsk/ZatrudnienieMinus.png",
-		"assets/wsk/ZatrudnieniePlus.png",
-		"assets/wsk/InfrastrukturaMinus.png",
-		"assets/wsk/InfrastrukturaPlus.png",
-		"assets/wsk/WolnoscMinus.png",
+		"assets/wsk/DochodMinus.png",         //0
+		"assets/wsk/DochodPlus.png",          //1
+		"assets/wsk/ZatrudnienieMinus.png",   //2
+		"assets/wsk/ZatrudnieniePlus.png",    //3
+		"assets/wsk/InfrastrukturaMinus.png", //4
+		"assets/wsk/InfrastrukturaPlus.png",  //5
+		"assets/wsk/WolnoscMinus.png",        //6
 		"assets/wsk/WolnoscPlus.png",
 		"assets/wsk/BezpieczenstwoMinus.png",
 		"assets/wsk/BezpieczenstwoPlus.png",
@@ -73,38 +82,69 @@ var (
 		"assets/wsk/InflacjaPlus.png",
 	}
 )
-var (
-	minimumStampDistance = 420
-)
 
-func main() {
-	if len(os.Args) == 2 {
-		if os.Args[1] == "-b" {
-			replaceSubstringInSlice(grupyImagePaths, "grupy", "boldgrupy")
-			replaceSubstringInSlice(wskaznikiImagePaths, "wsk", "boldwsk")
-		}
-	}
-	//Initialize a card
-	card := Card{
-		ArtPath:  "assets/woda.png",
-		Title:    "Ujebanie się wódką",
-		Opinions: [10]Opinion{1, -1, 1, 1, 1, 1, -1, -1, 0, 0},
-		Effects:  [7]int{0, 0, 1, 3, -1, -3, 1},
+const cm = 300
+
+func ParseInput(input string) LegislationCard {
+	inputParts := strings.Split(input, ".")
+	artPath := inputParts[0]
+	title := inputParts[1]
+	opinions := stringToOpinions(inputParts[2])
+	effects := stringToEffects(inputParts[3])
+	cost, _ := strconv.Atoi(inputParts[4])
+
+	return NewLegislationCard(artPath, title, opinions, effects, cost)
+}
+func NewLegislationCard(artPath string, title string, opinions [10]Opinion, effects [7]int, cost int) LegislationCard {
+
+	return LegislationCard{
+		ArtPath:  artPath + ".png",
+		Title:    title,
+		Opinions: opinions,
+		Effects:  effects,
 		Cost: Cost{
-			Value:       2,
-			AddToBudget: true,
+			Value:       cost,
+			Currency:    Cash,
+			AddToBudget: false,
 		},
-	}
-
-	err := drawCard(card, "wodka")
-	if err != nil {
-		log.Fatal(err)
 	}
 }
 
-func drawCard(card Card, filename string) error {
+// Średnica kółka: 300px
+// 1cm = 300px
+
+func main() {
+	dirName := "generated"
+
+	if _, err := os.Stat(dirName); os.IsNotExist(err) {
+		err := os.Mkdir(dirName, 0755)
+		if err != nil {
+			fmt.Printf("Critical error - create directory %s yourself\n", dirName)
+			os.Exit(1)
+		}
+	}
+	for {
+		fmt.Println("Input card code:")
+		reader := bufio.NewReader(os.Stdin)
+		input, _ := reader.ReadString('\n')
+		input = strings.TrimSpace(input)
+		if input == "exit" {
+			os.Exit(0)
+		}
+		card := ParseInput(input)
+
+		err := drawCard(card, dirName+"/"+card.ArtPath)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		fmt.Printf("Generated %s -> wygenerowane/%s\n", card.ArtPath, card.ArtPath)
+		fmt.Printf("\n")
+	}
+}
+func drawCard(card LegislationCard, filename string) error {
 	//Load base card png
-	backgroundFile, err := os.Open("assets/card.png")
+	backgroundFile, err := os.Open("assets/print_card.png")
 	if err != nil {
 		return err
 	}
@@ -114,18 +154,31 @@ func drawCard(card Card, filename string) error {
 		return err
 	}
 
-	backgroundImage = addArt(backgroundImage, card.ArtPath)
+	backgroundImage, err = addArt(backgroundImage, card.ArtPath)
+	if err != nil {
+		return fmt.Errorf("in drawCard(): %v", err)
+	}
 
-	backgroundImage = addStamps(backgroundImage, card.Opinions[:])
+	backgroundImage, err = addStamps(backgroundImage, card.Opinions[:])
+	if err != nil {
+		return fmt.Errorf("in drawCard(): %v", err)
+	}
 
-	backgroundImage = addEffects(backgroundImage, card.Effects[:])
+	backgroundImage, err = addEffects(backgroundImage, card.Effects[:])
+	if err != nil {
+		return fmt.Errorf("in drawCard(): %v", err)
+	}
+
 	if card.Cost.Value != 0 {
-		backgroundImage = addCost(backgroundImage, card.Cost)
+		backgroundImage, err = addCost(backgroundImage, card.Cost)
+		if err != nil {
+			return fmt.Errorf("in drawCard(): %v", err)
+		}
 	}
 
 	backgroundImage = addTitle(backgroundImage, card.Title)
 
-	result, err := os.Create(filename + ".png")
+	result, err := os.Create(filename)
 	if err != nil {
 		return err
 	}
@@ -137,268 +190,233 @@ func drawCard(card Card, filename string) error {
 	return nil
 }
 
-func addArt(backgroundImage image.Image, artPath string) *image.RGBA {
+func addArt(backgroundImage image.Image, artPath string) (*image.RGBA, error) {
 
 	//Add card art to backgroundImage
 	artFile, err := os.Open(artPath)
 	if err != nil {
-		fmt.Println("addArt oops")
+		return nil, fmt.Errorf("in addArt(): Failed to open %s", artPath)
 	}
-	art, err := png.Decode(artFile)
+	var art image.Image
+	art, err = png.Decode(artFile)
 	defer artFile.Close()
 	if err != nil {
-		fmt.Println("addArt oops2")
+		art, err = jpeg.Decode(artFile)
+		if err != nil {
+			return nil, fmt.Errorf("in addArt(): Failed to decode png or jpg of %s", artPath)
+		}
 	}
+	resultImage := image.NewRGBA(backgroundImage.Bounds())
+
 	//First resize the art to fit the card.
-	artWidth := uint(300 * 5)
-	artHeight := uint(300 * 3)
+
+	draw.Draw(resultImage, backgroundImage.Bounds(), backgroundImage, image.Point{}, draw.Over)
+
+	artWidth := uint(56 * 30)
+	artHeight := uint(33*30 + 1)
+
 	art = resize.Resize(artWidth, artHeight, art, resize.Lanczos3)
-	resultImage := image.NewRGBA(backgroundImage.Bounds())
-	draw.Draw(resultImage, backgroundImage.Bounds(), backgroundImage, image.Point{}, draw.Src)
-	artPosition := image.Point{X: 0, Y: 0}
+	draw.Draw(resultImage, art.Bounds(), art, image.Point{}, draw.Over)
+
+	artWidth = uint(5 * cm)
+	artHeight = uint(3 * cm)
+
+	art = resize.Resize(artWidth, artHeight, art, resize.Lanczos3)
+	artPosition := image.Point{X: 90, Y: 90}
 	draw.Draw(resultImage, art.Bounds().Add(artPosition), art, image.Point{}, draw.Over)
-	return resultImage
+	return resultImage, nil
 }
 
-func addStamps(backgroundImage image.Image, opinions []Opinion) *image.RGBA {
-	for {
-		resultImage := image.NewRGBA(backgroundImage.Bounds())
-		draw.Draw(resultImage, backgroundImage.Bounds(), backgroundImage, image.Point{}, draw.Src)
-
-		placedPositions := []image.Point{}
-		success := true
-
-		for idx, op := range opinions {
-			var err error
-			if op == For {
-				resultImage, placedPositions, err = drawStampFor(resultImage, idx, placedPositions)
-			} else if op == Against {
-				resultImage, placedPositions, err = drawStampAgainst(resultImage, idx, placedPositions)
-			}
-			if err != nil {
-				success = false
-				break
-			}
-		}
-
-		if success {
-			return resultImage
-		}
-	}
+type group struct {
+	id      int
+	opinion Opinion
 }
 
-func drawStampFor(backgroundImage image.Image, stamp_id int, placedPositions []image.Point) (*image.RGBA, []image.Point, error) {
+func addStamps(backgroundImage image.Image, opinions []Opinion) (*image.RGBA, error) {
+
 	resultImage := image.NewRGBA(backgroundImage.Bounds())
 	draw.Draw(resultImage, backgroundImage.Bounds(), backgroundImage, image.Point{}, draw.Src)
 
-	stampFile, err := os.Open(grupyImagePaths[stamp_id])
-	if err != nil {
-		fmt.Println("drawStampFor oops")
-	}
-	stampImage, err := png.Decode(stampFile)
-	if err != nil {
-		fmt.Println("drawStampFor oops2")
-	}
-
-	stampImage = resize.Resize(300, 300, stampImage, resize.Lanczos3)
-
-	var stampPosition image.Point
-	i := 0
-	for {
-		x := rand.Intn(1200-765+1) + 765
-		y := rand.Intn(1725-1200+1) + 1200
-		stampPosition = image.Point{X: x, Y: y}
-		i++
-		if !isOverlap(stampPosition, placedPositions) {
-			break
-		}
-		if i > 10 {
-			// fmt.Println("resetting for")
-			return resultImage, placedPositions, fmt.Errorf("impossible placement")
+	fors := make([]group, 0)
+	againsts := make([]group, 0)
+	for idx, op := range opinions {
+		if op == For {
+			fors = append(fors, group{idx, For})
+		} else if op == Against {
+			againsts = append(againsts, group{idx, Against})
+		} else if op == ExtraFor {
+			fors = append(fors, group{idx, ExtraFor})
+		} else if op == ExtraAgainst {
+			againsts = append(againsts, group{idx, ExtraAgainst})
 		}
 	}
-	draw.Draw(resultImage, stampImage.Bounds().Add(stampPosition), stampImage, image.Point{}, draw.Over)
-	placedPositions = append(placedPositions, stampPosition)
-	return resultImage, placedPositions, nil
+
+	if len(fors) > 4 {
+		return nil, fmt.Errorf("in addStamps(): Too many For groups! Pick up to 4")
+	}
+
+	if len(againsts) > 4 {
+		return nil, fmt.Errorf("in addStamps(): Too many Against groups! Pick up to 4")
+	}
+
+	image, err := drawStampFor(resultImage, fors)
+	if err != nil {
+		return nil, err
+	}
+
+	image, err = drawStampAgainst(image, againsts)
+	if err != nil {
+		return nil, err
+	}
+	return image, nil
+	//drawStampAgainst(resultImage, againsts)
 }
 
-func drawStampAgainst(backgroundImage image.Image, stamp_id int, placedPositions []image.Point) (*image.RGBA, []image.Point, error) {
+func drawStampFor(backgroundImage image.Image, fors []group) (*image.RGBA, error) {
 	resultImage := image.NewRGBA(backgroundImage.Bounds())
 	draw.Draw(resultImage, backgroundImage.Bounds(), backgroundImage, image.Point{}, draw.Src)
 
-	stampFile, err := os.Open(grupyImagePaths[stamp_id])
-	if err != nil {
-		fmt.Println("drawStampAgainst oops")
-	}
-	stampImage, err := png.Decode(stampFile)
-	if err != nil {
-		fmt.Println("drawStampAgainst oops2")
-	}
-
-	stampImage = resize.Resize(300, 300, stampImage, resize.Lanczos3)
-
-	var stampPosition image.Point
-	i := 0
-	for {
-		x := rand.Intn(345 + 1)
-		y := rand.Intn(1725-1200+1) + 1200
-		stampPosition = image.Point{X: x, Y: y}
-		i++
-		if !isOverlap(stampPosition, placedPositions) {
-			break
+	for idx, group := range fors {
+		path := grupyImagePaths[group.id]
+		if group.opinion == ExtraFor {
+			path = strings.Split(path, ".png")[0] + "U.png"
 		}
-		if i > 10 {
-			// fmt.Println("resetting against")
-			return resultImage, placedPositions, fmt.Errorf("impossible placement")
+		stampFile, err := os.Open(path)
+		if err != nil {
+			return nil, fmt.Errorf("in drawStampFor(): Failed to open file for stamp_id %d: %v", group.id, err)
 		}
+		defer stampFile.Close()
+
+		stampImage, err := png.Decode(stampFile)
+		if err != nil {
+			return nil, fmt.Errorf("in drawStampFor(): Failed to decode png of stamp_id %d: %v", group.id, err)
+		}
+
+		stampImage = resize.Resize(300, 300, stampImage, resize.Lanczos3)
+
+		var stampPosition image.Point
+		switch idx {
+		case 0:
+			stampPosition = image.Point{X: 90 + 750 + 30, Y: 1200 + 30 + 90}
+		case 1:
+			stampPosition = image.Point{X: 390 + 60 + 750 + 60, Y: 1200 + 30 + 90}
+		case 2:
+			stampPosition = image.Point{X: 90 + 750 + 30, Y: 1200 + 30 + 300 + 90 + 90}
+		case 3:
+			stampPosition = image.Point{X: 390 + 60 + 750 + 60, Y: 1200 + 30 + 300 + 90 + 90}
+		}
+		draw.Draw(resultImage, stampImage.Bounds().Add(stampPosition), stampImage, image.Point{}, draw.Over)
 	}
-	draw.Draw(resultImage, stampImage.Bounds().Add(stampPosition), stampImage, image.Point{}, draw.Over)
-	placedPositions = append(placedPositions, stampPosition)
-	return resultImage, placedPositions, nil
+	return resultImage, nil
 }
 
-func isOverlap(position image.Point, placedPositions []image.Point) bool {
-	for _, p := range placedPositions {
-		dist := math.Sqrt(math.Pow(float64(position.X)-float64(p.X), 2) + math.Pow(float64(position.Y)-float64(p.Y), 2))
-		if dist <= float64(minimumStampDistance) {
-			return true
-		}
-	}
-	return false
-}
-
-func addEffects(backgroundImage image.Image, effects []int) *image.RGBA {
+func drawStampAgainst(backgroundImage image.Image, againsts []group) (*image.RGBA, error) {
 	resultImage := image.NewRGBA(backgroundImage.Bounds())
 	draw.Draw(resultImage, backgroundImage.Bounds(), backgroundImage, image.Point{}, draw.Src)
-	goodOffset := 0
-	badOffset := 0
 
-	goodCount := 0
-	badCount := 0
-
-	for _, val := range effects {
-		if val > 0 {
-			goodCount++
-		} else if val < 0 {
-			badCount++
+	for idx, group := range againsts {
+		path := grupyImagePaths[group.id]
+		if group.opinion == ExtraAgainst {
+			path = strings.Split(path, ".png")[0] + "U.png"
 		}
+		stampFile, err := os.Open(path)
+		if err != nil {
+			return nil, fmt.Errorf("in drawStampAgainst(): Failed to draw stamp_id %d", group.id)
+		}
+		stampImage, err := png.Decode(stampFile)
+		if err != nil {
+			return nil, fmt.Errorf("in drawStampAgainst(): Failed to decode png of stamp_id %d", group.id)
+		}
+
+		stampImage = resize.Resize(300, 300, stampImage, resize.Lanczos3)
+
+		var stampPosition image.Point
+
+		switch idx {
+		case 0:
+			stampPosition = image.Point{X: 90 + 30, Y: 1200 + 90 + 30}
+		case 1:
+			stampPosition = image.Point{X: 390 + 60 + 60, Y: 1200 + 90 + 30}
+		case 2:
+			stampPosition = image.Point{X: 90 + 30, Y: 1200 + 30 + 300 + 90 + 90}
+		case 3:
+			stampPosition = image.Point{X: 390 + 60 + 60, Y: 1200 + 30 + 300 + 90 + 90}
+		}
+		draw.Draw(resultImage, stampImage.Bounds().Add(stampPosition), stampImage, image.Point{}, draw.Over)
 	}
 
+	return resultImage, nil
+}
+
+func addEffects(backgroundImage image.Image, effects []int) (*image.RGBA, error) {
+	resultImage := image.NewRGBA(backgroundImage.Bounds())
+	draw.Draw(resultImage, backgroundImage.Bounds(), backgroundImage, image.Point{}, draw.Src)
+
+	var err error
+	effCount := 0
 	for idx, val := range effects {
 		if val != 0 {
-			if val > 0 {
-				resultImage = drawGoodEffect(resultImage, val, idx*2+1, goodOffset, goodCount)
-				goodOffset++
-			} else { // val < 0
-				resultImage = drawBadEffect(resultImage, val, idx*2, badOffset, badCount)
-				badOffset++
+			resultImage, err = drawEffect(resultImage, idx, val, effCount)
+			if err != nil {
+				return nil, fmt.Errorf("in addEffects(): %v", err)
 			}
+			effCount++
 		}
 	}
-	return resultImage
+	return resultImage, nil
 }
 
-func drawGoodEffect(backgroundImage image.Image, val int, effect_id, offset, goodCount int) *image.RGBA {
-	resultImage := image.NewRGBA(backgroundImage.Bounds())
-	draw.Draw(resultImage, backgroundImage.Bounds(), backgroundImage, image.Point{}, draw.Src)
-	effectFile, err := os.Open(wskaznikiImagePaths[effect_id])
+func drawEffect(backgroundImage *image.RGBA, effect_id int, effect_val int, effCount int) (*image.RGBA, error) {
+	var effectFile *os.File
+	var err error
+	if effect_val > 0 {
+		effectFile, err = os.Open(wskaznikiImagePaths[effect_id*2+1])
+	} else if effect_val < 0 {
+		effectFile, err = os.Open(wskaznikiImagePaths[effect_id*2])
+	}
 	if err != nil {
-		fmt.Println("drawGoodEffect oops")
+		return nil, fmt.Errorf("in drawEffect(): Failed to open image path: %v", err)
 	}
-	effectImage, err := png.Decode(effectFile)
+	defer effectFile.Close()
+
+	effImage, err := png.Decode(effectFile)
 	if err != nil {
-		fmt.Println("drawGoodEffect oops2")
+		return nil, fmt.Errorf("in drawEffect(): failed to decode image path: %v", err)
 	}
-	effectImage = resize.Resize(360, 300, effectImage, resize.Lanczos3)
-	x := 775 + offset*150
-	if goodCount == 2 {
-		x = 775 + offset*350
-	}
-	y := 2010
-	var effectPosition image.Point
-	switch val {
-	case 1:
-		effectPosition = image.Point{X: x, Y: y}
-		draw.Draw(resultImage, effectImage.Bounds().Add(effectPosition), effectImage, image.Point{}, draw.Over)
-	case 2:
-		effectPosition = image.Point{X: x, Y: y}
-		draw.Draw(resultImage, effectImage.Bounds().Add(effectPosition), effectImage, image.Point{}, draw.Over)
-		y -= 30
-		effectPosition = image.Point{X: x, Y: y}
-		draw.Draw(resultImage, effectImage.Bounds().Add(effectPosition), effectImage, image.Point{}, draw.Over)
-	case 3:
-		effectPosition = image.Point{X: x, Y: y}
-		draw.Draw(resultImage, effectImage.Bounds().Add(effectPosition), effectImage, image.Point{}, draw.Over)
-		y -= 30
-		effectPosition = image.Point{X: x, Y: y}
-		draw.Draw(resultImage, effectImage.Bounds().Add(effectPosition), effectImage, image.Point{}, draw.Over)
-		y -= 30
-		effectPosition = image.Point{X: x, Y: y}
-		draw.Draw(resultImage, effectImage.Bounds().Add(effectPosition), effectImage, image.Point{}, draw.Over)
+	//First resize the art to fit the card.
+	wskWidth := uint(1 * cm)
+	wskHeight := uint(1.14 * cm)
+
+	effImage = resize.Resize(wskWidth, wskHeight, effImage, resize.Lanczos3)
+
+	x := 90 + 30 + effCount*(65+int(wskWidth))
+	y := 2460 - int(wskHeight) - 120
+	abs_val := int(math.Abs(float64(effect_val)))
+	for i := abs_val; i > 0; i-- {
+		effPostion := image.Point{X: x, Y: y + i*50}
+		draw.Draw(backgroundImage, effImage.Bounds().Add(effPostion), effImage, image.Point{}, draw.Over)
 	}
 
-	return resultImage
+	return backgroundImage, nil
 }
 
-func drawBadEffect(backgroundImage image.Image, val int, effect_id, offset, badCount int) *image.RGBA {
-	resultImage := image.NewRGBA(backgroundImage.Bounds())
-	draw.Draw(resultImage, backgroundImage.Bounds(), backgroundImage, image.Point{}, draw.Src)
-	effectFile, err := os.Open(wskaznikiImagePaths[effect_id])
-	if err != nil {
-		fmt.Println("drawBadEffect oops")
-	}
-	effectImage, err := png.Decode(effectFile)
-	if err != nil {
-		fmt.Println("drawBadEffect oops2")
-	}
-	effectImage = resize.Resize(360, 300, effectImage, resize.Lanczos3)
-	x := 10 + offset*150
-	if badCount == 2 {
-		x = 10 + offset*350
-	}
-	y := 2010
-	var effectPosition image.Point
-	switch val {
-	case -1:
-		effectPosition = image.Point{X: x, Y: y}
-		draw.Draw(resultImage, effectImage.Bounds().Add(effectPosition), effectImage, image.Point{}, draw.Over)
-	case -2:
-		y += 30
-		effectPosition = image.Point{X: x, Y: y}
-		draw.Draw(resultImage, effectImage.Bounds().Add(effectPosition), effectImage, image.Point{}, draw.Over)
-		y += 30
-		effectPosition = image.Point{X: x, Y: y}
-		draw.Draw(resultImage, effectImage.Bounds().Add(effectPosition), effectImage, image.Point{}, draw.Over)
-	case -3:
-		effectPosition = image.Point{X: x, Y: y}
-		draw.Draw(resultImage, effectImage.Bounds().Add(effectPosition), effectImage, image.Point{}, draw.Over)
-		y += 30
-		effectPosition = image.Point{X: x, Y: y}
-		draw.Draw(resultImage, effectImage.Bounds().Add(effectPosition), effectImage, image.Point{}, draw.Over)
-		y += 30
-		effectPosition = image.Point{X: x, Y: y}
-		draw.Draw(resultImage, effectImage.Bounds().Add(effectPosition), effectImage, image.Point{}, draw.Over)
-	}
-
-	return resultImage
-}
-
-func addCost(backgroundImage image.Image, cost Cost) *image.RGBA {
+func addCost(backgroundImage image.Image, cost Cost) (*image.RGBA, error) {
 	resultImage := image.NewRGBA(backgroundImage.Bounds())
 	draw.Draw(resultImage, backgroundImage.Bounds(), backgroundImage, image.Point{}, draw.Src)
 	costFile, err := os.Open(costToFilepath(cost))
 	if err != nil {
-		fmt.Println("addCost oops")
+		return nil, fmt.Errorf("addCost oops")
 	}
 	costImage, err := png.Decode(costFile)
 	if err != nil {
-		fmt.Println("addCost oops2")
+		return nil, fmt.Errorf("addCost oops")
 	}
-	x := 0
-	y := 20
+	x := 0 + 90 + 15
+	y := 20 + 90 + 15
 	costPosition := image.Point{X: x, Y: y}
 	draw.Draw(resultImage, costImage.Bounds().Add(costPosition), costImage, image.Point{}, draw.Over)
-	return resultImage
+	return resultImage, nil
+
 }
 
 func costToFilepath(cost Cost) string {
@@ -454,10 +472,10 @@ func addTitle(backgroundImage image.Image, title string) *image.RGBA {
 	context.SetSrc(image.NewUniform(color.White))
 
 	face := truetype.NewFace(font, &truetype.Options{
-		Size: 150,
+		Size: 165,
 	})
 
-	y := 1020
+	y := 1020 + 90
 	if len(title) > 11 {
 		mid := len(title) / 2
 		left := strings.LastIndex(title[:mid], " ")
@@ -512,4 +530,56 @@ func replaceSubstringInSlice(slice []string, oldSubstr, newSubstr string) []stri
 		slice[i] = strings.ReplaceAll(str, oldSubstr, newSubstr)
 	}
 	return slice
+}
+
+func stringToEffects(input string) [7]int {
+	// Step 1: Remove the parentheses
+	input = strings.Trim(input, "()")
+
+	// Step 2: Split the string by commas
+	stringParts := strings.Split(input, ",")
+
+	// Step 3: Initialize an array of type [7]int
+	var result [7]int
+
+	// Step 4: Convert the string values to integers and assign to the array
+	for i, str := range stringParts {
+		if i < 7 { // Ensure we don't go out of bounds
+			value, err := strconv.Atoi(str)
+			if err != nil {
+				fmt.Println("Error converting string to int:", err)
+				continue // Skip the error and continue processing the rest
+			}
+			result[i] = value
+		}
+	}
+
+	// Step 5: Return the result
+	return result
+}
+
+func stringToOpinions(input string) [10]Opinion {
+	// Step 1: Remove the parentheses
+	input = strings.Trim(input, "()")
+
+	// Step 2: Split the string by commas
+	stringParts := strings.Split(input, ",")
+
+	// Step 3: Initialize an array of type [10]int
+	var result [10]Opinion
+
+	// Step 4: Convert the string values to integers and assign to the array
+	for i, str := range stringParts {
+		if i < 10 { // Ensure we don't go out of bounds
+			value, err := strconv.Atoi(str)
+			if err != nil {
+				fmt.Println("Error converting string to int:", err)
+				continue // Skip the error and continue processing the rest
+			}
+			result[i] = Opinion(value)
+		}
+	}
+
+	// Step 5: Return the result
+	return result
 }
