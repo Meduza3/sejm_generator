@@ -116,6 +116,13 @@ func NewLegislationCard(artPath string, title string, opinions [10]Opinion, effe
 func main() {
 	dirName := "generated"
 
+	fmt.Println("------------------SEJM GENERATOR--------------------")
+	fmt.Println("card code: filename.card title.opinions.effects.cost")
+	fmt.Println("filename: without .png")
+	fmt.Println("opinions: (1,2,2,-2,-2,0,0,0,0,-1)")
+	fmt.Println("effects: (0,0,0,1,-2,0,1)")
+	fmt.Println("cost: in [-5,5]")
+
 	if _, err := os.Stat(dirName); os.IsNotExist(err) {
 		err := os.Mkdir(dirName, 0755)
 		if err != nil {
@@ -124,7 +131,10 @@ func main() {
 		}
 	}
 	for {
+		fmt.Println("----------------------------------------------------")
+		fmt.Println("")
 		fmt.Println("Input card code:")
+
 		reader := bufio.NewReader(os.Stdin)
 		input, _ := reader.ReadString('\n')
 		input = strings.TrimSpace(input)
@@ -138,6 +148,7 @@ func main() {
 			log.Fatal(err)
 		}
 
+		fmt.Printf("\n")
 		fmt.Printf("Generated %s -> wygenerowane/%s\n", card.ArtPath, card.ArtPath)
 		fmt.Printf("\n")
 	}
