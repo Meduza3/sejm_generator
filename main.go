@@ -233,7 +233,7 @@ func actionCardsLoop() {
 	fmt.Println("description: long description of the action")
 	fmt.Println("symbol: reflect, table or paperclip")
 	fmt.Println("Costtype: trust, cash or scandal")
-	fmt.Println("cost: in [-5,5]")
+	fmt.Println("cost: in [-10,10]")
 	if _, err := os.Stat(DirName); os.IsNotExist(err) {
 		err := os.Mkdir(DirName, 0755)
 		if err != nil {
@@ -241,27 +241,43 @@ func actionCardsLoop() {
 			os.Exit(1)
 		}
 	}
+
+	reader := bufio.NewReader(os.Stdin)
+
 	for {
 		fmt.Println("----------------------------------------------------")
-		fmt.Println("")
-		fmt.Println("Input card code:")
+		fmt.Println("Input card codes:")
 
-		reader := bufio.NewReader(os.Stdin)
-		input, _ := reader.ReadString('\n')
-		input = strings.TrimSpace(input)
-		if input == "exit" {
-			os.Exit(0)
-		}
-		card := ParseActionInput(input)
-
-		err := drawActionCard(card, DirName+"/"+card.ArtPath)
+		// Read all input until an empty line or exit is encountered
+		input, err := reader.ReadString('\n')
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		fmt.Printf("\n")
-		fmt.Printf("Generated %s -> wygenerowane/%s\n", card.ArtPath, card.ArtPath)
-		fmt.Printf("\n")
+		input = strings.TrimSpace(input)
+
+		// If the input is empty or "exit", stop processing
+		if input == "" || input == "exit" {
+			break
+		}
+
+		// Split the input into individual lines
+		lines := strings.Split(input, "<>")
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if line == "" {
+				continue
+			}
+
+			card := ParseActionInput(line)
+
+			err = drawActionCard(card, DirName+"/"+card.ArtPath)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			fmt.Printf("Generated %s -> wygenerowane/%s\n", card.ArtPath, card.ArtPath)
+		}
 	}
 }
 
@@ -271,7 +287,7 @@ func legislationCardsLoop() {
 	fmt.Println("filename: without .png")
 	fmt.Println("opinions: (1,2,2,-2,-2,0,0,0,0,-1)")
 	fmt.Println("effects: (0,0,0,1,-2,0,1)")
-	fmt.Println("cost: in [-5,5]")
+	fmt.Println("cost: in [-10,10]")
 
 	if _, err := os.Stat(DirName); os.IsNotExist(err) {
 		err := os.Mkdir(DirName, 0755)
@@ -280,41 +296,60 @@ func legislationCardsLoop() {
 			os.Exit(1)
 		}
 	}
+
+	reader := bufio.NewReader(os.Stdin)
+
 	for {
 		fmt.Println("----------------------------------------------------")
 		fmt.Println("")
-		fmt.Println("Input card code:")
+		fmt.Println("Input card codes:")
 
-		reader := bufio.NewReader(os.Stdin)
-		input, _ := reader.ReadString('\n')
-		input = strings.TrimSpace(input)
-		if input == "exit" {
-			os.Exit(0)
-		}
-		card := ParseLegislationInput(input)
-
-		err := drawLegislationCard(card, DirName+"/"+card.ArtPath)
+		// Read all input until an empty line or exit is encountered
+		input, err := reader.ReadString('\n')
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		fmt.Printf("\n")
-		fmt.Printf("Generated %s -> wygenerowane/%s\n", card.ArtPath, card.ArtPath)
-		fmt.Printf("\n")
+		input = strings.TrimSpace(input)
+
+		// If the input is empty or "exit", stop processing
+		if input == "" || input == "exit" {
+			break
+		}
+
+		// Split the input into individual lines
+		lines := strings.Split(input, "<>")
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if line == "" {
+				continue
+			}
+
+			card := ParseLegislationInput(line)
+
+			err = drawLegislationCard(card, DirName+"/"+card.ArtPath)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			fmt.Println()
+			fmt.Printf("Generated %s -> wygenerowane/%s\n", card.ArtPath, card.ArtPath)
+		}
 	}
 }
 
 func drawActionCard(card ActionCard, filename string) error {
-	backgroundFile, err := os.Open("assets/action_printcard.jpg")
+	backgroundFile, err := os.Open("assets/action_printcard.png")
 	if err != nil {
 		return err
 	}
-
-	backgroundImage, err := jpeg.Decode(backgroundFile)
 	defer backgroundFile.Close()
+
+	backgroundImage, err := png.Decode(backgroundFile)
 	if err != nil {
 		return err
 	}
+	backgroundImage = resize.Resize(1680, 2580, backgroundImage, resize.Lanczos3)
 
 	backgroundImage, err = addArt(backgroundImage, card.ArtPath)
 	if err != nil {
@@ -323,9 +358,32 @@ func drawActionCard(card ActionCard, filename string) error {
 
 	backgroundImage = addTitle(backgroundImage, card.Title)
 
-	backgroundImage = addDescription(backgroundImage, card.Description)
+	backgroundImage, err = addDescription(backgroundImage, card.Description)
 	if err != nil {
 		return fmt.Errorf("in drawCard(): %v", err)
+	}
+
+	if card.RedText != "" {
+		backgroundImage, err = addRibbon(backgroundImage)
+		if err != nil {
+			return fmt.Errorf("in drawCard(): %v", err)
+		}
+		backgroundImage, err = addRedText(backgroundImage, card.RedText)
+		if err != nil {
+			return fmt.Errorf("in drawCard(): %v", err)
+		}
+	}
+
+	backgroundImage, err = addSymbol(backgroundImage, card.Symbol)
+	if err != nil {
+		return fmt.Errorf("in drawCard(): %v", err)
+	}
+
+	if card.Cost.Value != 0 {
+		backgroundImage, err = addCost(backgroundImage, card.Cost)
+		if err != nil {
+			return fmt.Errorf("in drawCard(): %v", err)
+		}
 	}
 
 	result, err := os.Create(filename)
@@ -350,6 +408,7 @@ func drawLegislationCard(card LegislationCard, filename string) error {
 	if err != nil {
 		return err
 	}
+	backgroundImage = resize.Resize(1680, 2580, backgroundImage, resize.Lanczos3)
 
 	backgroundImage, err = addArt(backgroundImage, card.ArtPath)
 	if err != nil {
@@ -563,6 +622,105 @@ func addEffects(backgroundImage image.Image, effects []int) (*image.RGBA, error)
 	return resultImage, nil
 }
 
+func addSymbol(backgroundImage image.Image, symbol Symbol) (*image.RGBA, error) {
+	resultImage := image.NewRGBA(backgroundImage.Bounds())
+	draw.Draw(resultImage, backgroundImage.Bounds(), backgroundImage, image.Point{}, draw.Src)
+
+	symbolPath := "assets/symbol"
+	switch symbol {
+	case Reflect:
+		symbolPath += "/reflect.png"
+	case Table:
+		symbolPath += "/table.png"
+	case Paperclip:
+		symbolPath += "/paperclip.png"
+	}
+
+	var err error
+	symbolFile, err := os.Open(symbolPath)
+	if err != nil {
+		return nil, fmt.Errorf("in drawSymbol(): Failed to open file: %v", err)
+	}
+
+	symbolImage, err := png.Decode(symbolFile)
+	if err != nil {
+		return nil, fmt.Errorf("in drawSymbol(): Failed to decode file: %v", err)
+	}
+
+	symbolImage = resize.Resize(300, 300, symbolImage, resize.Lanczos3)
+	symbolPosition := image.Point{X: 90, Y: 2200}
+	draw.Draw(resultImage, symbolImage.Bounds().Add(symbolPosition), symbolImage, image.Point{}, draw.Over)
+	return resultImage, nil
+}
+
+func addRedText(backgroundImage image.Image, redtext string) (*image.RGBA, error) {
+	resultImage := image.NewRGBA(backgroundImage.Bounds())
+	draw.Draw(resultImage, backgroundImage.Bounds(), backgroundImage, image.Point{}, draw.Src)
+
+	// Load the font
+	fontBytes, err := os.ReadFile("assets/sylfaen.ttf")
+	if err != nil {
+		return nil, err
+	}
+	font, err := freetype.ParseFont(fontBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create a new context for drawing text
+	context := freetype.NewContext()
+	context.SetFont(font)
+	fontSize := 135 - 50
+	context.SetFontSize(float64(fontSize))
+	context.SetClip(resultImage.Bounds())
+	context.SetDst(resultImage)
+	context.SetSrc(image.NewUniform(color.White))
+
+	face := truetype.NewFace(font, &truetype.Options{
+		Size: float64(165 - 50),
+	})
+
+	maxWidth := resultImage.Bounds().Dx() - 40 // Set a maximum width for text lines, with padding
+
+	// Split the title into lines based on available width
+	lines := splitTextIntoLines(face, redtext, maxWidth)
+
+	// Draw each line of text
+	y := 2200 + 90
+	for _, line := range lines {
+		lineWidth := textWidth(face, line)
+		x := ((resultImage.Bounds().Dx() - lineWidth) / 2) + 200 // Center text horizontally
+		x += 150
+		pt := freetype.Pt(x, y)
+		_, err = context.DrawString(line, pt)
+		if err != nil {
+			return nil, err
+		}
+		y += int(context.PointToFixed(float64(fontSize)) >> 6)
+	}
+
+	return resultImage, nil
+}
+
+func addRibbon(backgroundImage image.Image) (*image.RGBA, error) {
+	resultImage := image.NewRGBA(backgroundImage.Bounds())
+	draw.Draw(resultImage, backgroundImage.Bounds(), backgroundImage, image.Point{}, draw.Src)
+	ribbonFile, err := os.Open("assets/ribbon.png")
+	if err != nil {
+		return nil, fmt.Errorf("in addRibbon(): %v", err)
+	}
+
+	ribbonImage, err := png.Decode(ribbonFile)
+	if err != nil {
+		return nil, fmt.Errorf("in addRibbon(): %v", err)
+	}
+
+	ribbonImage = resize.Resize(1680, 2580, ribbonImage, resize.Lanczos3)
+	ribbonPosition := image.Point{X: 0, Y: 2200}
+	draw.Draw(resultImage, ribbonImage.Bounds().Add(ribbonPosition), ribbonImage, image.Point{}, draw.Over)
+	return resultImage, nil
+}
+
 func drawEffect(backgroundImage *image.RGBA, effect_id int, effect_val int, effCount int) (*image.RGBA, error) {
 	var effectFile *os.File
 	var err error
@@ -617,47 +775,63 @@ func addCost(backgroundImage image.Image, cost Cost) (*image.RGBA, error) {
 }
 
 func costToFilepath(cost Cost) string {
+
+	switchOnValue := func(filepath string) string {
+		switch cost.Value {
+		case -5:
+			filepath += "minus5"
+		case -4:
+			filepath += "minus4"
+		case -3:
+			filepath += "minus3"
+		case -2:
+			filepath += "minus2"
+		case -1:
+			filepath += "minus1"
+		case 1:
+			filepath += "plus1"
+		case 2:
+			filepath += "plus2"
+		case 3:
+			filepath += "plus3"
+		case 4:
+			filepath += "plus4"
+		case 5:
+			filepath += "plus5"
+		default:
+			filepath += "minus1"
+		}
+
+		return filepath
+	}
+
 	filepath := "assets/ceny/"
-	switch cost.Value {
-	case -5:
-		filepath += "minus5"
-	case -4:
-		filepath += "minus4"
-	case -3:
-		filepath += "minus3"
-	case -2:
-		filepath += "minus2"
-	case -1:
-		filepath += "minus1"
-	case 1:
-		filepath += "plus1"
-	case 2:
-		filepath += "plus2"
-	case 3:
-		filepath += "plus3"
-	case 4:
-		filepath += "plus4"
-	case 5:
-		filepath += "plus5"
-	default:
-		filepath += "minus1"
+	if cost.Currency == Cash {
+		filepath += "cash/"
+		filepath = switchOnValue(filepath)
+	} else if cost.Currency == Trust {
+		filepath += "trust/"
+		filepath = switchOnValue(filepath)
+	} else if cost.Currency == Scandal {
+		filepath += "scandal/"
+		filepath = switchOnValue(filepath)
 	}
 	filepath += ".png"
 	return filepath
 }
 
-func addDescription(backgroundImage image.Image, title string) *image.RGBA {
+func addDescription(backgroundImage image.Image, title string) (*image.RGBA, error) {
 	resultImage := image.NewRGBA(backgroundImage.Bounds())
 	draw.Draw(resultImage, backgroundImage.Bounds(), backgroundImage, image.Point{}, draw.Src)
 
 	// Load the font
 	fontBytes, err := os.ReadFile("assets/sylfaen.ttf")
 	if err != nil {
-		fmt.Println("addTitle oops")
+		return nil, err
 	}
 	font, err := freetype.ParseFont(fontBytes)
 	if err != nil {
-		fmt.Println("addTitle oops2")
+		return nil, err
 	}
 
 	// Create a new context for drawing text
@@ -679,7 +853,7 @@ func addDescription(backgroundImage image.Image, title string) *image.RGBA {
 	lines := splitTextIntoLines(face, title, maxWidth)
 
 	// Draw each line of text
-	y := 1520 + 90
+	y := 1320 + 90
 	for _, line := range lines {
 		lineWidth := textWidth(face, line)
 		x := (resultImage.Bounds().Dx() - lineWidth) / 2 // Center text horizontally
@@ -687,12 +861,12 @@ func addDescription(backgroundImage image.Image, title string) *image.RGBA {
 		pt := freetype.Pt(x, y)
 		_, err = context.DrawString(line, pt)
 		if err != nil {
-			fmt.Println("addTitle oop3")
+			return nil, err
 		}
 		y += int(context.PointToFixed(float64(fontSize)) >> 6)
 	}
 
-	return resultImage
+	return resultImage, nil
 }
 
 // splitTextIntoLines splits the input text into multiple lines such that each line fits within the maxWidth.
