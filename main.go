@@ -8,7 +8,6 @@ import (
 	"image/draw"
 	"image/jpeg"
 	"image/png"
-	"io"
 	"log"
 	"math"
 	"os"
@@ -42,9 +41,9 @@ type Cost struct {
 type Currency string
 
 const (
-	Trust   Currency = "Trust"
-	Cash    Currency = "Cash"
-	Scandal Currency = "Scandal"
+	Trust   Currency = "trust"
+	Cash    Currency = "cash"
+	Scandal Currency = "scandal"
 )
 
 // Values 0-10
@@ -60,9 +59,9 @@ type Symbol string
 
 const (
 	NoSymbol  Symbol = ""
-	Reflect   Symbol = "Reflect"
-	Table     Symbol = "Table"
-	Paperclip Symbol = "Paperclip"
+	Reflect   Symbol = "reflect"
+	Table     Symbol = "table"
+	Paperclip Symbol = "paperclip"
 )
 
 type ActionCard struct {
@@ -109,6 +108,12 @@ const cm = 300
 
 func ParseLegislationInput(input string) LegislationCard {
 	inputParts := strings.Split(input, ".")
+
+	// Basic validation of input parts length
+	if len(inputParts) < 5 {
+		log.Fatalf("Invalid input: expected at least 5 parts, got %d in input: %s", len(inputParts), input)
+	}
+
 	artPath := inputParts[0]
 	title := inputParts[1]
 	opinions := stringToOpinions(inputParts[2])
@@ -120,6 +125,12 @@ func ParseLegislationInput(input string) LegislationCard {
 
 func ParseActionInput(input string) ActionCard {
 	inputParts := strings.Split(input, ".")
+
+	// Basic validation of input parts length
+	if len(inputParts) < 6 {
+		log.Fatalf("Invalid input: expected at least 6 parts, got %d in input: %s", len(inputParts), input)
+	}
+
 	artPath := inputParts[0]
 	title := inputParts[1]
 	description := inputParts[2]
@@ -245,48 +256,27 @@ func actionCardsLoop() {
 		}
 	}
 
-	reader := bufio.NewReader(os.Stdin)
-
 	for {
 		fmt.Println("----------------------------------------------------")
-		fmt.Println("Input card codes:")
+		fmt.Println("")
+		fmt.Println("Input card code:")
 
-		// Read all input until an empty line or exit is encountered
-		input, err := reader.ReadString('\n')
+		reader := bufio.NewReader(os.Stdin)
+		input, _ := reader.ReadString('\n')
+		input = strings.TrimSpace(input)
+		if input == "exit" {
+			os.Exit(0)
+		}
+		card := ParseActionInput(input)
+
+		err := drawActionCard(card, DirName+"/"+card.ArtPath)
 		if err != nil {
-			if err == io.EOF {
-				// Handle EOF for windows and linux properly
-				break
-			}
 			log.Fatal(err)
 		}
 
-		// Trim spaces and carriage return characters
-		input = strings.TrimSpace(input)
-		input = strings.TrimSuffix(input, "\r")
-
-		// If the input is empty or "exit", stop processing
-		if input == "" || input == "exit" {
-			break
-		}
-
-		// Split the input into individual lines
-		lines := strings.Split(input, "<>")
-		for _, line := range lines {
-			line = strings.TrimSpace(line)
-			if line == "" {
-				continue
-			}
-
-			card := ParseActionInput(line)
-
-			err = drawActionCard(card, DirName+"/"+card.ArtPath)
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			fmt.Printf("Generated %s -> wygenerowane/%s\n", card.ArtPath, card.ArtPath)
-		}
+		fmt.Printf("\n")
+		fmt.Printf("Generated %s -> wygenerowane/%s\n", card.ArtPath, card.ArtPath)
+		fmt.Printf("\n")
 	}
 
 }
@@ -307,44 +297,27 @@ func legislationCardsLoop() {
 		}
 	}
 
-	reader := bufio.NewReader(os.Stdin)
-
 	for {
 		fmt.Println("----------------------------------------------------")
 		fmt.Println("")
-		fmt.Println("Input card codes:")
+		fmt.Println("Input card code:")
 
-		// Read all input until an empty line or exit is encountered
-		input, err := reader.ReadString('\n')
+		reader := bufio.NewReader(os.Stdin)
+		input, _ := reader.ReadString('\n')
+		input = strings.TrimSpace(input)
+		if input == "exit" {
+			os.Exit(0)
+		}
+		card := ParseLegislationInput(input)
+
+		err := drawLegislationCard(card, DirName+"/"+card.ArtPath)
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		input = strings.TrimSpace(input)
-
-		// If the input is empty or "exit", stop processing
-		if input == "" || input == "exit" {
-			break
-		}
-
-		// Split the input into individual lines
-		lines := strings.Split(input, "<>")
-		for _, line := range lines {
-			line = strings.TrimSpace(line)
-			if line == "" {
-				continue
-			}
-
-			card := ParseLegislationInput(line)
-
-			err = drawLegislationCard(card, DirName+"/"+card.ArtPath)
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			fmt.Println()
-			fmt.Printf("Generated %s -> wygenerowane/%s\n", card.ArtPath, card.ArtPath)
-		}
+		fmt.Printf("\n")
+		fmt.Printf("Generated %s -> wygenerowane/%s\n", card.ArtPath, card.ArtPath)
+		fmt.Printf("\n")
 	}
 }
 
@@ -644,6 +617,8 @@ func addSymbol(backgroundImage image.Image, symbol Symbol) (*image.RGBA, error) 
 		symbolPath += "/table.png"
 	case Paperclip:
 		symbolPath += "/paperclip.png"
+	default:
+		symbolPath += string(symbol)
 	}
 
 	var err error
