@@ -632,7 +632,7 @@ func addSymbol(backgroundImage image.Image, symbol Symbol) (*image.RGBA, error) 
 	case Paperclip:
 		symbolPath += "/paperclip.png"
 	default:
-		symbolPath += string(symbol)
+		return resultImage, nil
 	}
 
 	var err error
