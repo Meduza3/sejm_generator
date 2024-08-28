@@ -250,20 +250,34 @@ func actionCardsLoop() {
 		fmt.Println("----------------------------------------------------")
 		fmt.Println("Input card codes:")
 
-		// Read all input until an empty line or exit is encountered
-		input, err := reader.ReadString('\n')
-		if err != nil {
-			log.Fatal(err)
+		var inputLines []string
+
+		// Read input until an empty line or "exit" is encountered
+		for {
+			input, err := reader.ReadString('\n')
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			input = strings.TrimSpace(input)
+
+			// If the input is empty or "exit", stop processing
+			if input == "" || input == "exit" {
+				break
+			}
+
+			inputLines = append(inputLines, input)
 		}
 
-		input = strings.TrimSpace(input)
-
-		// If the input is empty or "exit", stop processing
-		if input == "" || input == "exit" {
+		// If "exit" was entered, break the outer loop
+		if len(inputLines) == 0 || strings.ToLower(inputLines[0]) == "exit" {
 			break
 		}
 
-		// Split the input into individual lines
+		// Join all accumulated input lines
+		input := strings.Join(inputLines, "")
+
+		// Split the input into individual lines separated by "<>"
 		lines := strings.Split(input, "<>")
 		for _, line := range lines {
 			line = strings.TrimSpace(line)
@@ -273,7 +287,7 @@ func actionCardsLoop() {
 
 			card := ParseActionInput(line)
 
-			err = drawActionCard(card, DirName+"/"+card.ArtPath)
+			err := drawActionCard(card, DirName+"/"+card.ArtPath)
 			if err != nil {
 				log.Fatal(err)
 			}
