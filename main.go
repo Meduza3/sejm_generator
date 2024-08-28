@@ -330,7 +330,7 @@ func legislationCardsLoop() {
 		}
 
 		fmt.Printf("\n")
-		fmt.Printf("Generated %s -> wygenerowane/%s\n", card.ArtPath, card.ArtPath)
+		fmt.Printf("Generated %s -> generated/%s\n", card.ArtPath, card.ArtPath)
 		fmt.Printf("\n")
 	}
 }
