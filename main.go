@@ -8,6 +8,7 @@ import (
 	"image/draw"
 	"image/jpeg"
 	"image/png"
+	"io"
 	"log"
 	"math"
 	"os"
@@ -250,34 +251,26 @@ func actionCardsLoop() {
 		fmt.Println("----------------------------------------------------")
 		fmt.Println("Input card codes:")
 
-		var inputLines []string
-
-		// Read input until an empty line or "exit" is encountered
-		for {
-			input, err := reader.ReadString('\n')
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			input = strings.TrimSpace(input)
-
-			// If the input is empty or "exit", stop processing
-			if input == "" || input == "exit" {
+		// Read all input until an empty line or exit is encountered
+		input, err := reader.ReadString('\n')
+		if err != nil {
+			if err == io.EOF {
+				// Handle EOF for windows and linux properly
 				break
 			}
-
-			inputLines = append(inputLines, input)
+			log.Fatal(err)
 		}
 
-		// If "exit" was entered, break the outer loop
-		if len(inputLines) == 0 || strings.ToLower(inputLines[0]) == "exit" {
+		// Trim spaces and carriage return characters
+		input = strings.TrimSpace(input)
+		input = strings.TrimSuffix(input, "\r")
+
+		// If the input is empty or "exit", stop processing
+		if input == "" || input == "exit" {
 			break
 		}
 
-		// Join all accumulated input lines
-		input := strings.Join(inputLines, "")
-
-		// Split the input into individual lines separated by "<>"
+		// Split the input into individual lines
 		lines := strings.Split(input, "<>")
 		for _, line := range lines {
 			line = strings.TrimSpace(line)
@@ -287,7 +280,7 @@ func actionCardsLoop() {
 
 			card := ParseActionInput(line)
 
-			err := drawActionCard(card, DirName+"/"+card.ArtPath)
+			err = drawActionCard(card, DirName+"/"+card.ArtPath)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -295,6 +288,7 @@ func actionCardsLoop() {
 			fmt.Printf("Generated %s -> wygenerowane/%s\n", card.ArtPath, card.ArtPath)
 		}
 	}
+
 }
 
 func legislationCardsLoop() {
