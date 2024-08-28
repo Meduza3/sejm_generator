@@ -11,8 +11,11 @@ import (
 	"log"
 	"math"
 	"os"
+	"os/exec"
+	"runtime"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/golang/freetype"
 	"github.com/golang/freetype/truetype"
@@ -31,16 +34,16 @@ const (
 )
 
 type Cost struct {
-	Value       int
-	Currency    Currency
-	AddToBudget bool
+	Value    int
+	Currency Currency
 }
 
 type Currency string
 
 const (
-	Trust Currency = "Trust"
-	Cash  Currency = "Cash"
+	Trust   Currency = "Trust"
+	Cash    Currency = "Cash"
+	Scandal Currency = "Scandal"
 )
 
 // Values 0-10
@@ -50,6 +53,24 @@ type LegislationCard struct {
 	Opinions [10]Opinion
 	Effects  [7]int
 	Cost     Cost
+}
+
+type Symbol string
+
+const (
+	NoSymbol  Symbol = ""
+	Reflect   Symbol = "Reflect"
+	Table     Symbol = "Table"
+	Paperclip Symbol = "Paperclip"
+)
+
+type ActionCard struct {
+	ArtPath     string
+	Title       string
+	Description string
+	Symbol      Symbol
+	Cost        Cost
+	RedText     string
 }
 
 var (
@@ -85,7 +106,7 @@ var (
 
 const cm = 300
 
-func ParseInput(input string) LegislationCard {
+func ParseLegislationInput(input string) LegislationCard {
 	inputParts := strings.Split(input, ".")
 	artPath := inputParts[0]
 	title := inputParts[1]
@@ -95,6 +116,54 @@ func ParseInput(input string) LegislationCard {
 
 	return NewLegislationCard(artPath, title, opinions, effects, cost)
 }
+
+func ParseActionInput(input string) ActionCard {
+	inputParts := strings.Split(input, ".")
+	artPath := inputParts[0]
+	title := inputParts[1]
+	description := inputParts[2]
+	var symbol Symbol
+	switch inputParts[3] {
+	case "reflect":
+		symbol = Reflect
+	case "table":
+		symbol = Table
+	case "paperclip":
+		symbol = Paperclip
+	default:
+		symbol = NoSymbol
+	}
+	var currency Currency
+	switch inputParts[4] {
+	case "trust":
+		currency = Trust
+	case "cash":
+		currency = Cash
+	case "scandal":
+		currency = Scandal
+	}
+	cost, _ := strconv.Atoi(inputParts[5])
+	var redtext string
+	if len(inputParts) == 7 {
+		redtext = inputParts[6]
+	}
+
+	return NewActionCard(artPath, title, description, symbol, cost, currency, redtext)
+}
+func NewActionCard(artPath, title, description string, symbol Symbol, cost int, currency Currency, redtext string) ActionCard {
+	return ActionCard{
+		ArtPath:     artPath + ".png",
+		Title:       title,
+		Description: description,
+		Symbol:      symbol,
+		Cost: Cost{
+			Value:    cost,
+			Currency: currency,
+		},
+		RedText: redtext,
+	}
+}
+
 func NewLegislationCard(artPath string, title string, opinions [10]Opinion, effects [7]int, cost int) LegislationCard {
 
 	return LegislationCard{
@@ -103,9 +172,8 @@ func NewLegislationCard(artPath string, title string, opinions [10]Opinion, effe
 		Opinions: opinions,
 		Effects:  effects,
 		Cost: Cost{
-			Value:       cost,
-			Currency:    Cash,
-			AddToBudget: false,
+			Value:    cost,
+			Currency: Cash,
 		},
 	}
 }
@@ -113,20 +181,63 @@ func NewLegislationCard(artPath string, title string, opinions [10]Opinion, effe
 // Średnica kółka: 300px
 // 1cm = 300px
 
+const DirName = "generated"
+
 func main() {
-	dirName := "generated"
-
 	fmt.Println("------------------SEJM GENERATOR--------------------")
-	fmt.Println("card code: filename.card title.opinions.effects.cost")
-	fmt.Println("filename: without .png")
-	fmt.Println("opinions: (1,2,2,-2,-2,0,0,0,0,-1)")
-	fmt.Println("effects: (0,0,0,1,-2,0,1)")
-	fmt.Println("cost: in [-5,5]")
+	fmt.Println("1 - Generate legislation cards")
+	fmt.Println("2 - Generate action cards")
 
-	if _, err := os.Stat(dirName); os.IsNotExist(err) {
-		err := os.Mkdir(dirName, 0755)
+	var selection int
+	fmt.Printf("Please enter your selection: ")
+	_, err := fmt.Scanf("%d", &selection)
+	if err != nil {
+		fmt.Println("Failed to read input:", err)
+		return
+	}
+
+	switch selection {
+	case 1:
+		clearConsole()
+		legislationCardsLoop()
+	case 2:
+		clearConsole()
+		actionCardsLoop()
+	default:
+		fmt.Printf("%d is not an option. exiting", selection)
+		time.Sleep(500 * time.Millisecond)
+		os.Exit(1)
+	}
+}
+
+func clearConsole() {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "windows":
+		cmd = exec.Command("cmd", "/c", "cls")
+	case "linux", "darwin":
+		cmd = exec.Command("clear")
+	default:
+		fmt.Println("Unsupported platform")
+		return
+	}
+
+	cmd.Stdout = os.Stdout
+	cmd.Run()
+}
+
+func actionCardsLoop() {
+	fmt.Println("------------------SEJM GENERATOR--------------------")
+	fmt.Println("card code: filename.card title.description.symbol.costtype.cost.<optional red description>")
+	fmt.Println("filename: without .png")
+	fmt.Println("description: long description of the action")
+	fmt.Println("symbol: reflect, table or paperclip")
+	fmt.Println("Costtype: trust, cash or scandal")
+	fmt.Println("cost: in [-5,5]")
+	if _, err := os.Stat(DirName); os.IsNotExist(err) {
+		err := os.Mkdir(DirName, 0755)
 		if err != nil {
-			fmt.Printf("Critical error - create directory %s yourself\n", dirName)
+			fmt.Printf("Critical error - create directory %s yourself\n", DirName)
 			os.Exit(1)
 		}
 	}
@@ -141,9 +252,9 @@ func main() {
 		if input == "exit" {
 			os.Exit(0)
 		}
-		card := ParseInput(input)
+		card := ParseActionInput(input)
 
-		err := drawCard(card, dirName+"/"+card.ArtPath)
+		err := drawActionCard(card, DirName+"/"+card.ArtPath)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -153,7 +264,82 @@ func main() {
 		fmt.Printf("\n")
 	}
 }
-func drawCard(card LegislationCard, filename string) error {
+
+func legislationCardsLoop() {
+	fmt.Println("------------------SEJM GENERATOR--------------------")
+	fmt.Println("card code: filename.card title.opinions.effects.cost")
+	fmt.Println("filename: without .png")
+	fmt.Println("opinions: (1,2,2,-2,-2,0,0,0,0,-1)")
+	fmt.Println("effects: (0,0,0,1,-2,0,1)")
+	fmt.Println("cost: in [-5,5]")
+
+	if _, err := os.Stat(DirName); os.IsNotExist(err) {
+		err := os.Mkdir(DirName, 0755)
+		if err != nil {
+			fmt.Printf("Critical error - create directory %s yourself\n", DirName)
+			os.Exit(1)
+		}
+	}
+	for {
+		fmt.Println("----------------------------------------------------")
+		fmt.Println("")
+		fmt.Println("Input card code:")
+
+		reader := bufio.NewReader(os.Stdin)
+		input, _ := reader.ReadString('\n')
+		input = strings.TrimSpace(input)
+		if input == "exit" {
+			os.Exit(0)
+		}
+		card := ParseLegislationInput(input)
+
+		err := drawLegislationCard(card, DirName+"/"+card.ArtPath)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		fmt.Printf("\n")
+		fmt.Printf("Generated %s -> wygenerowane/%s\n", card.ArtPath, card.ArtPath)
+		fmt.Printf("\n")
+	}
+}
+
+func drawActionCard(card ActionCard, filename string) error {
+	backgroundFile, err := os.Open("assets/action_printcard.jpg")
+	if err != nil {
+		return err
+	}
+
+	backgroundImage, err := jpeg.Decode(backgroundFile)
+	defer backgroundFile.Close()
+	if err != nil {
+		return err
+	}
+
+	backgroundImage, err = addArt(backgroundImage, card.ArtPath)
+	if err != nil {
+		return fmt.Errorf("in drawCard(): %v", err)
+	}
+
+	backgroundImage = addTitle(backgroundImage, card.Title)
+
+	backgroundImage = addDescription(backgroundImage, card.Description)
+	if err != nil {
+		return fmt.Errorf("in drawCard(): %v", err)
+	}
+
+	result, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	if err := png.Encode(result, backgroundImage); err != nil {
+		fmt.Println("Error encoding output image:", err)
+		return err
+	}
+	return nil
+}
+
+func drawLegislationCard(card LegislationCard, filename string) error {
 	//Load base card png
 	backgroundFile, err := os.Open("assets/print_card.png")
 	if err != nil {
@@ -456,11 +642,83 @@ func costToFilepath(cost Cost) string {
 	default:
 		filepath += "minus1"
 	}
-	if !cost.AddToBudget {
-		filepath += "raz"
-	}
 	filepath += ".png"
 	return filepath
+}
+
+func addDescription(backgroundImage image.Image, title string) *image.RGBA {
+	resultImage := image.NewRGBA(backgroundImage.Bounds())
+	draw.Draw(resultImage, backgroundImage.Bounds(), backgroundImage, image.Point{}, draw.Src)
+
+	// Load the font
+	fontBytes, err := os.ReadFile("assets/sylfaen.ttf")
+	if err != nil {
+		fmt.Println("addTitle oops")
+	}
+	font, err := freetype.ParseFont(fontBytes)
+	if err != nil {
+		fmt.Println("addTitle oops2")
+	}
+
+	// Create a new context for drawing text
+	context := freetype.NewContext()
+	context.SetFont(font)
+	fontSize := 135 - 50
+	context.SetFontSize(float64(fontSize))
+	context.SetClip(resultImage.Bounds())
+	context.SetDst(resultImage)
+	context.SetSrc(image.NewUniform(color.Black))
+
+	face := truetype.NewFace(font, &truetype.Options{
+		Size: float64(165 - 50),
+	})
+
+	maxWidth := resultImage.Bounds().Dx() - 40 // Set a maximum width for text lines, with padding
+
+	// Split the title into lines based on available width
+	lines := splitTextIntoLines(face, title, maxWidth)
+
+	// Draw each line of text
+	y := 1520 + 90
+	for _, line := range lines {
+		lineWidth := textWidth(face, line)
+		x := (resultImage.Bounds().Dx() - lineWidth) / 2 // Center text horizontally
+		x += 150
+		pt := freetype.Pt(x, y)
+		_, err = context.DrawString(line, pt)
+		if err != nil {
+			fmt.Println("addTitle oop3")
+		}
+		y += int(context.PointToFixed(float64(fontSize)) >> 6)
+	}
+
+	return resultImage
+}
+
+// splitTextIntoLines splits the input text into multiple lines such that each line fits within the maxWidth.
+func splitTextIntoLines(face font.Face, text string, maxWidth int) []string {
+	words := strings.Fields(text)
+	var lines []string
+	var currentLine string
+
+	for _, word := range words {
+		testLine := currentLine + " " + word
+		if textWidth(face, strings.TrimSpace(testLine)) > maxWidth {
+			if currentLine == "" {
+				// If the current line is empty, add the word to the line anyway (to prevent infinite loop)
+				currentLine = word
+			}
+			lines = append(lines, strings.TrimSpace(currentLine))
+			currentLine = word
+		} else {
+			currentLine = testLine
+		}
+	}
+	if currentLine != "" {
+		lines = append(lines, strings.TrimSpace(currentLine))
+	}
+
+	return lines
 }
 
 func addTitle(backgroundImage image.Image, title string) *image.RGBA {
