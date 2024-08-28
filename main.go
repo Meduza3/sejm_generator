@@ -264,7 +264,14 @@ func actionCardsLoop() {
 		reader := bufio.NewReader(os.Stdin)
 		input, _ := reader.ReadString('\n')
 		input = strings.TrimSpace(input)
+		// If the input is empty, prompt the user again
+		if input == "" {
+			fmt.Println("Input cannot be empty. Please enter the card code or type 'exit' to quit.")
+			continue
+		}
+
 		if input == "exit" {
+			fmt.Println("Exiting...")
 			os.Exit(0)
 		}
 		card := ParseActionInput(input)
@@ -305,7 +312,14 @@ func legislationCardsLoop() {
 		reader := bufio.NewReader(os.Stdin)
 		input, _ := reader.ReadString('\n')
 		input = strings.TrimSpace(input)
+		// If the input is empty, prompt the user again
+		if input == "" {
+			fmt.Println("Input cannot be empty. Please enter the card code or type 'exit' to quit.")
+			continue
+		}
+
 		if input == "exit" {
+			fmt.Println("Exiting...")
 			os.Exit(0)
 		}
 		card := ParseLegislationInput(input)
