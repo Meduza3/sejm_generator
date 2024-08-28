@@ -107,7 +107,7 @@ var (
 const cm = 300
 
 func ParseLegislationInput(input string) LegislationCard {
-	inputParts := strings.Split(input, ".")
+	inputParts := strings.Split(input, ">")
 
 	// Basic validation of input parts length
 	if len(inputParts) < 5 {
@@ -124,7 +124,7 @@ func ParseLegislationInput(input string) LegislationCard {
 }
 
 func ParseActionInput(input string) ActionCard {
-	inputParts := strings.Split(input, ".")
+	inputParts := strings.Split(input, ">")
 
 	// Basic validation of input parts length
 	if len(inputParts) < 6 {
@@ -242,7 +242,7 @@ func clearConsole() {
 
 func actionCardsLoop() {
 	fmt.Println("------------------SEJM GENERATOR--------------------")
-	fmt.Println("card code: filename.card title.description.symbol.costtype.cost.<optional red description>")
+	fmt.Println("card code: filename>card title>description>symbol>costtype>cost>[optional red description]")
 	fmt.Println("filename: without .png")
 	fmt.Println("description: long description of the action")
 	fmt.Println("symbol: reflect, table or paperclip")
@@ -290,7 +290,7 @@ func actionCardsLoop() {
 
 func legislationCardsLoop() {
 	fmt.Println("------------------SEJM GENERATOR--------------------")
-	fmt.Println("card code: filename.card title.opinions.effects.cost")
+	fmt.Println("card code: filename>card title>opinions>effects>cost")
 	fmt.Println("filename: without .png")
 	fmt.Println("opinions: (1,2,2,-2,-2,0,0,0,0,-1)")
 	fmt.Println("effects: (0,0,0,1,-2,0,1)")
