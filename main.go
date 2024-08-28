@@ -193,6 +193,8 @@ func main() {
 	_, err := fmt.Scanf("%d", &selection)
 	if err != nil {
 		fmt.Println("Failed to read input:", err)
+		time.Sleep(500 * time.Millisecond)
+
 		return
 	}
 
